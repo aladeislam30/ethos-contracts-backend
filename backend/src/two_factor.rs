@@ -205,14 +205,14 @@ fn verify_pending_otp(vault_id: &str, code: &str) -> bool {
 
     if let Some(codes) = store.get_mut(vault_id) {
         codes.retain(|otp| otp.expires_at > now);
-        let mut matched_pos = None;
+        let mut matched_pos = codes.len();
         for (pos, otp) in codes.iter().enumerate() {
-            if constant_time_eq(otp.code.as_bytes(), code.as_bytes()) {
-                matched_pos = Some(pos);
-            }
+            let match_mask = 0usize
+                .wrapping_sub(constant_time_eq(otp.code.as_bytes(), code.as_bytes()) as usize);
+            matched_pos = (matched_pos & !match_mask) | (pos & match_mask);
         }
-        if let Some(pos) = matched_pos {
-            codes.remove(pos);
+        if matched_pos < codes.len() {
+            codes.remove(matched_pos);
             return true;
         }
     }
